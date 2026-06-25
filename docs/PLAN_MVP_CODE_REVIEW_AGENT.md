@@ -8,7 +8,7 @@
 * Orquestación IA: LangChain + LangGraph
 * LLM: Groq (Llama 3.3 70B)
 * Integración: GitHub API
-* Frontend: Next.js + Tailwind CSS
+* Frontend: React + Vite + Tailwind CSS
 
 **Duración:** 3 semanas
 
@@ -110,7 +110,7 @@ Incluye:
 
 ### Frontend
 
-* Inicialización de proyecto Next.js.
+* Inicialización de proyecto React con Vite.
 * Configuración de Tailwind CSS.
 * Definición de estructura de carpetas.
 
@@ -462,7 +462,7 @@ code-review-agent/
 │       └── github_tools.py
 │
 ├── frontend/
-│   ├── app/
+│   ├── src/
 │   ├── public/
 │   └── package.json
 │
@@ -477,7 +477,7 @@ code-review-agent/
 Usuario
    │
    ▼
-Frontend (Next.js)
+Frontend (React + Vite)
    │
    ▼
 FastAPI Endpoint
