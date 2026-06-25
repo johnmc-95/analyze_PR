@@ -24,7 +24,7 @@ La arquitectura está diseñada para cumplir los requisitos definidos en el docu
 ┌──────────────────────────────────────────────┐
 │           CAPA DE PRESENTACIÓN               │
 │                                              │
-│      Next.js + Tailwind CSS                  │
+│      React + Vite + Tailwind CSS             │
 │      Desktop First + Dark Mode               │
 └──────────────────────┬───────────────────────┘
                        │
@@ -59,7 +59,7 @@ La arquitectura está diseñada para cumplir los requisitos definidos en el docu
 
 # Descripción de Componentes
 
-## Frontend (Next.js)
+## Frontend (React + Vite)
 
 Aplicación web orientada a escritorio que permite:
 
@@ -112,7 +112,7 @@ El cliente mantiene la petición abierta mientras el backend ejecuta el análisi
 
 ## Secuencia de Datos
 
-1. El usuario introduce la URL del Pull Request en Next.js.
+1. El usuario introduce la URL del Pull Request en el frontend React.
 
 2. El frontend envía:
 
@@ -530,7 +530,7 @@ Usuario
 
    ▼
 
-Frontend Next.js
+Frontend React + Vite
 
    |
 

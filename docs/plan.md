@@ -1,6 +1,6 @@
 🤖 Code Review Agent
 
-> **Stack:** FastAPI + LangChain + LangGraph + Groq + GitHub API + Next.js
+> **Stack:** FastAPI + LangChain + LangGraph + Groq + GitHub API + React + Vite
 > 
 
 > **Tiempo:** 3 semanas · 1-2h/día · en paralelo con DataQuantum
@@ -49,14 +49,14 @@
 - Backend FastAPI: `POST /review` recibe URL del PR y devuelve el informe
 - Segundo agente especializado en convenciones de código (naming, estructura, duplicación)
 - LangGraph: orquestar los 2 agentes en paralelo y combinar resultados
-- Frontend mínimo en Next.js: pegar URL del PR y ver el informe
+- Frontend mínimo con React + Vite: pegar URL del PR y ver el informe
 - Auth básica con API key
 
 **Tecnologías:**
 
 - LangGraph: primer grafo real con nodos paralelos
 - FastAPI + Pydantic
-- Next.js (mínimo, solo UI)
+- React + Vite (mínimo, solo UI)
 
 **✅ Checkpoint:** Pegas la URL de un PR en el frontend y ves un informe con bugs, seguridad y convenciones en menos de 30 segundos.
 
@@ -98,7 +98,7 @@ code-review-agent/
 │   ├── graph.py         # LangGraph
 │   └── schemas.py
 ├── frontend/
-│   └── app/
+│   └── src/
 └── .github/
     └── workflows/
         └── code-review.yml
