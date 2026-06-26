@@ -8,7 +8,7 @@ load_dotenv()
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-PR_URL = "https://github.com/facebook/react/pull/31727"
+PR_URL = "https://github.com/maykmbs/code-review-dataquantum/pull/17"
 
 
 # ── 1. Descargar el diff desde GitHub ────────────────────────────
