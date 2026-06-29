@@ -6,6 +6,41 @@ Herramienta web que analiza Pull Requests de GitHub mediante agentes de IA espec
 
 ---
 
+## Levantar el proyecto completo
+
+Necesitas dos terminales abiertas en paralelo.
+
+### Terminal 1 — Backend
+
+```bash
+cd backend
+python3 -m venv venv
+
+# Mac/Linux
+source venv/bin/activate
+# Windows CMD: venv\Scripts\activate.bat
+# Windows PowerShell: venv\Scripts\Activate.ps1
+
+pip install -r requirements.txt
+uvicorn main:app --reload
+```
+
+Verifica en `http://localhost:8000/health` → `{ "status": "Ok" }`
+
+### Terminal 2 — Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Abre `http://localhost:5173` en el navegador.
+
+> Para instrucciones detalladas de cada capa ver `backend/README.md` y `frontend/README.md`.
+
+---
+
 ## Ejecutar el demo
 
 El script `demo.py` descarga el diff de un PR público y lo analiza con Groq. Sirve para verificar que las API keys funcionan correctamente.
