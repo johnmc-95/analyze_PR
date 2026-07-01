@@ -79,3 +79,36 @@ Respuesta esperada:
 ```
 
 También puedes ver la documentación interactiva en `http://localhost:8000/docs`.
+
+---
+
+## Grafo de revisión con LangGraph
+
+El archivo `graph.py` define el flujo que orquesta los agentes de análisis del Pull Request.
+
+### Estado compartido
+
+`ReviewState` es el estado común que viaja entre todos los nodos del grafo. Incluye la URL del PR, el diff descargado, métricas del cambio, resultados parciales de cada agente y el informe final.
+
+### Flujo actual
+
+```text
+START
+  -> download_diff
+  -> validate_constraints
+  -> bug_analysis / security_analysis / style_analysis
+  -> consolidation
+  -> END
+```
+
+Los nodos existen y devuelven el estado sin modificar. Esto permite tener la estructura del grafo compilada mientras se implementa la lógica real de cada agente en próximas tareas.
+
+### Verificar compilación
+
+Desde la raíz del proyecto, con el entorno virtual activado:
+
+```bash
+python -c "from backend.graph import review_graph; print('Grafo compilado correctamente')"
+```
+
+Si aparece el mensaje, LangGraph está instalado y el grafo se ha construido sin errores.
