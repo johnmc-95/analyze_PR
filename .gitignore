@@ -36,3 +36,6 @@ dist/
 # ── Sistema operativo ─────────────────────────────────────────────
 .DS_Store
 Thumbs.db
+
+# modelos gratis
+modelos_gratis.md
