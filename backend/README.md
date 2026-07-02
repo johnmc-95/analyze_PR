@@ -112,3 +112,9 @@ python -c "from backend.graph import review_graph; print('Grafo compilado correc
 ```
 
 Si aparece el mensaje, LangGraph está instalado y el grafo se ha construido sin errores.
+
+### Herramientas del grafo
+
+La carpeta `tools/` contiene las funciones que usan los nodos internamente.
+
+- `tools/github_tools.py` — descarga el diff de un PR desde la API de GitHub. Lo usa el nodo `download_diff`.

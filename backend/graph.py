@@ -1,6 +1,7 @@
 from typing import TypedDict
 
 from langgraph.graph import END, START, StateGraph
+from tools.github_tools import get_pr_diff
 
 
 # Estado compartido entre todos los nodos del grafo.
@@ -19,7 +20,15 @@ class ReviewState(TypedDict):
 
 # Nodo encargado de descargar el diff del Pull Request.
 def download_diff(state: ReviewState) -> ReviewState:
-    return state
+    """
+    Descarga el diff del PR indicado en el estado y lo guarda en raw_diff.
+    Si ocurre cualquier error lo registra en error_message y marca el estado como fallido.
+    """
+    try:
+        diff = get_pr_diff(state["pr_url"])
+        return {**state, "raw_diff": diff, "status": "diff_downloaded"}
+    except Exception as e:
+        return {**state, "raw_diff": "", "status": "error", "error_message": str(e)}
 
 
 # Nodo encargado de validar límites del MVP.
