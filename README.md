@@ -100,6 +100,18 @@ python demo.py
 
 Deberías ver el diff descargado desde GitHub y el análisis generado por el modelo.
 
+### 6. Ejecutar verificación del agente de bugs (LangGraph)
+
+Además del script básico `demo.py`, puedes probar la ejecución paralela del grafo de LangGraph y del agente de detección de bugs corriendo:
+
+```bash
+# Probar el grafo completo de LangGraph con un PR real
+python verify_bug_agent.py
+
+# Probar la detección estructurada del agente con un diff que contiene bugs simulados
+python verify_with_bug.py
+```
+
 ---
 
 ## Documentación
