@@ -41,7 +41,7 @@ def get_pr_diff(pr_url: str) -> str:
         "Accept": "application/vnd.github.v3.diff",
     }
 
-    response = httpx.get(url, headers=headers)
+    response = httpx.get(url, headers=headers, timeout=10.0)
 
     if response.status_code == 404:
         raise RuntimeError(f"PR no encontrado o repositorio privado: {pr_url}")
