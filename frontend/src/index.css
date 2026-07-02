@@ -50,6 +50,7 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid 
 .carga__orbita { width: 52px; height: 52px; flex: 0 0 auto; border: 1px solid #51402f; border-radius: 50%; display: grid; place-items: center; animation: giro 1.3s linear infinite; }
 .carga__orbita::before { content: ''; position: absolute; width: 7px; height: 7px; transform: translateY(-26px); border-radius: 50%; background: #ffb77a; box-shadow: 0 0 12px #e8871e; }
 .carga__orbita span { width: 13px; height: 13px; background: #e8871e; transform: rotate(45deg); }
+.carga__orbita {position: relative;}
 .carga h2, .error-analisis h2 { margin: 4px 0; font-size: 22px; }
 .carga p, .error-analisis p { margin: 0; color: #898580; font-size: 14px; line-height: 1.5; }
 .carga__progreso { height: 2px; margin: 25px 0; background: #292725; overflow: hidden; }

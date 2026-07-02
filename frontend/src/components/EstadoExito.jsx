@@ -25,7 +25,8 @@ function EstadoExito({ resultados }) {
         <span>{resultados.hallazgos.length} elementos destacados</span>
       </div>
       <div className="hallazgos">
-        {resultados.hallazgos.map((hallazgo) => <TarjetaHallazgo key={hallazgo.severidad} hallazgo={hallazgo} />)}
+        {resultados.hallazgos.map((hallazgo, i) => (
+  <TarjetaHallazgo key={i} hallazgo={hallazgo} />))}
       </div>
     </section>
   )
