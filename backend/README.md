@@ -101,7 +101,7 @@ START
   -> END
 ```
 
-Los nodos existen y devuelven el estado sin modificar. Esto permite tener la estructura del grafo compilada mientras se implementa la lógica real de cada agente en próximas tareas.
+El nodo `bug_analysis` está completamente operativo y conectado a la API de Groq (`llama-3.3-70b-versatile`). Los nodos `security_analysis` y `style_analysis` actualmente existen como stubs (devuelven diccionarios vacíos `{}`) listos para ser implementados en las siguientes tareas.
 
 ### Verificar compilación
 
@@ -118,3 +118,24 @@ Si aparece el mensaje, LangGraph está instalado y el grafo se ha construido sin
 La carpeta `tools/` contiene las funciones que usan los nodos internamente.
 
 - `tools/github_tools.py` — descarga el diff de un PR desde la API de GitHub. Lo usa el nodo `download_diff`.
+
+---
+
+## Pruebas y Verificación del Agente de Bugs
+
+### 1. Ejecutar las pruebas unitarias
+Para comprobar que los validadores de Pydantic, la lógica de parseo del agente de bugs y los nodos del grafo responden correctamente (usando respuestas mockeadas de Groq):
+
+```bash
+# Desde la raíz del proyecto, con el entorno virtual activado:
+pytest
+```
+
+### 2. Scripts de Validación Rápida (En la raíz del proyecto)
+Para validar de extremo a extremo con llamadas reales a la API de Groq, disponemos de dos scripts de verificación en la raíz:
+
+* **`verify_bug_agent.py`**: 
+  Descarga el diff real del Pull Request utilizado en `demo.py` (el cual está limpio) y ejecuta todo el grafo de LangGraph de principio a fin. Sirve para validar que el flujo de los nodos en paralelo funcione perfectamente sin errores de concurrencia y que el agente de bugs retorne `0 hallazgos` ante código limpio.
+  
+* **`verify_with_bug.py`**:
+  Ejecuta el agente con un diff simulado que contiene tres errores explícitos (división por cero potencial, variable indefinida e ineficiencia de rendimiento). Sirve para comprobar que el agente de Groq responda con la severidad, explicación y propuesta de refactorización correspondiente en formato estructurado JSON.
