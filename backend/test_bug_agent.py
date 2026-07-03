@@ -139,8 +139,8 @@ def test_bug_analysis_node_success(mock_analyze_bugs):
     # Verificar que se llamó al agente con el diff correcto
     mock_analyze_bugs.assert_called_once_with("some diff content")
 
-    # Verificar el estado devuelto (debe retornar solo los campos modificados)
-    assert new_state["status"] == "bug_analysis_completed"
+    # El nodo paralelo solo retorna bug_issues, sin actualizar status
+    assert "status" not in new_state
     assert "error_message" not in new_state
     assert len(new_state["bug_issues"]) == 1
     
@@ -177,8 +177,8 @@ def test_bug_analysis_node_propagates_error(mock_analyze_bugs):
     # Ejecutar el nodo
     new_state = bug_analysis(initial_state)
 
-    # Verificar que el error se registra correctamente en el estado devuelto
-    assert new_state["status"] == "error"
+    # El nodo paralelo no escribe status; solo propaga error_message
+    assert "status" not in new_state
     assert "Error en bug_analysis node: Conexión con Groq perdida" in new_state["error_message"]
     assert new_state["bug_issues"] == []
 

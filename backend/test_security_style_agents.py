@@ -130,7 +130,7 @@ def test_security_analysis_node_success(mock_analyze_security):
     result = security_analysis(_estado())
 
     mock_analyze_security.assert_called_once_with("some diff content")
-    assert result["status"] == "security_analysis_completed"
+    assert "status" not in result
     assert len(result["security_issues"]) == 1
     assert result["security_issues"][0]["category"] == "security"
 
@@ -155,7 +155,7 @@ def test_style_analysis_node_success(mock_analyze_style):
     result = style_analysis(_estado())
 
     mock_analyze_style.assert_called_once_with("some diff content")
-    assert result["status"] == "style_analysis_completed"
+    assert "status" not in result
     assert len(result["style_issues"]) == 1
     assert result["style_issues"][0]["category"] == "style"
 

@@ -130,22 +130,18 @@ def bug_analysis(state: ReviewState) -> dict:
 
     raw_diff = state.get("raw_diff", "")
     if not raw_diff or not raw_diff.strip():
-        return {"bug_issues": [], "status": "bug_analysis_skipped"}
+        return {"bug_issues": []}
     
     try:
         # Ejecutar el análisis con el agente de bugs conectado a Groq
         findings = analyze_bugs(raw_diff)
         # Guardamos los findings serializados a diccionarios en bug_issues
         bug_issues_dicts = [finding.model_dump() for finding in findings]
-        return {
-            "bug_issues": bug_issues_dicts,
-            "status": "bug_analysis_completed"
-        }
+        return {"bug_issues": bug_issues_dicts}
     except Exception as e:
         # Capturamos cualquier error en la llamada o en la validación
         return {
             "bug_issues": [],
-            "status": "error",
             "error_message": f"Error en bug_analysis node: {str(e)}"
         }
 
@@ -162,7 +158,7 @@ def security_analysis(state: ReviewState) -> dict:
 
     raw_diff = state.get("raw_diff", "")
     if not raw_diff or not raw_diff.strip():
-        return {"security_issues": [], "status": "security_analysis_skipped"}
+        return {"security_issues": []}
 
     try:
         # Ejecutar el análisis con el agente de seguridad conectado a Groq.
@@ -171,15 +167,11 @@ def security_analysis(state: ReviewState) -> dict:
         # Guardar los findings como diccionarios para que viajen bien por el grafo.
         security_issues_dicts = [finding.model_dump() for finding in findings]
 
-        return {
-            "security_issues": security_issues_dicts,
-            "status": "security_analysis_completed",
-        }
+        return {"security_issues": security_issues_dicts}
     except Exception as e:
         # Registrar cualquier error del agente dentro del estado del grafo.
         return {
             "security_issues": [],
-            "status": "error",
             "error_message": f"Error en security_analysis node: {str(e)}",
         }
 
@@ -196,7 +188,7 @@ def style_analysis(state: ReviewState) -> dict:
 
     raw_diff = state.get("raw_diff", "")
     if not raw_diff or not raw_diff.strip():
-        return {"style_issues": [], "status": "style_analysis_skipped"}
+        return {"style_issues": []}
 
     try:
         # Ejecutar el análisis con el agente de estilo conectado a Groq.
@@ -205,15 +197,11 @@ def style_analysis(state: ReviewState) -> dict:
         # Guardar los findings como diccionarios para que viajen bien por el grafo.
         style_issues_dicts = [finding.model_dump() for finding in findings]
 
-        return {
-            "style_issues": style_issues_dicts,
-            "status": "style_analysis_completed",
-        }
+        return {"style_issues": style_issues_dicts}
     except Exception as e:
         # Registrar cualquier error del agente dentro del estado del grafo.
         return {
             "style_issues": [],
-            "status": "error",
             "error_message": f"Error en style_analysis node: {str(e)}",
         }
 
