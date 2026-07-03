@@ -3,6 +3,8 @@ from typing import TypedDict
 from langgraph.graph import END, START, StateGraph
 from tools.github_tools import get_pr_diff
 from agents.bug_agent import analyze_bugs
+from agents.security_agent import analyze_security
+from agents.style_agent import analyze_style
 
 
 # Límites del MVP definidos en los requisitos (RS-01 y RS-02).
@@ -150,13 +152,70 @@ def bug_analysis(state: ReviewState) -> dict:
 
 # Nodo reservado para el análisis de seguridad.
 def security_analysis(state: ReviewState) -> dict:
-    return {}
+    """
+    Ejecuta el agente de seguridad sobre el diff del PR y guarda los hallazgos
+    serializados en la clave 'security_issues' del estado.
+    """
+    # Si ya hay un error previo registrado en el estado, evitamos ejecutar el análisis.
+    if state.get("error_message"):
+        return {}
+
+    raw_diff = state.get("raw_diff", "")
+    if not raw_diff or not raw_diff.strip():
+        return {"security_issues": [], "status": "security_analysis_skipped"}
+
+    try:
+        # Ejecutar el análisis con el agente de seguridad conectado a Groq.
+        findings = analyze_security(raw_diff)
+
+        # Guardar los findings como diccionarios para que viajen bien por el grafo.
+        security_issues_dicts = [finding.model_dump() for finding in findings]
+
+        return {
+            "security_issues": security_issues_dicts,
+            "status": "security_analysis_completed",
+        }
+    except Exception as e:
+        # Registrar cualquier error del agente dentro del estado del grafo.
+        return {
+            "security_issues": [],
+            "status": "error",
+            "error_message": f"Error en security_analysis node: {str(e)}",
+        }
 
 
 # Nodo reservado para el análisis de estilo y mantenibilidad.
 def style_analysis(state: ReviewState) -> dict:
-    return {}
+    """
+    Ejecuta el agente de estilo sobre el diff del PR y guarda los hallazgos
+    serializados en la clave 'style_issues' del estado.
+    """
+    # Si ya hay un error previo registrado en el estado, evitamos ejecutar el análisis.
+    if state.get("error_message"):
+        return {}
 
+    raw_diff = state.get("raw_diff", "")
+    if not raw_diff or not raw_diff.strip():
+        return {"style_issues": [], "status": "style_analysis_skipped"}
+
+    try:
+        # Ejecutar el análisis con el agente de estilo conectado a Groq.
+        findings = analyze_style(raw_diff)
+
+        # Guardar los findings como diccionarios para que viajen bien por el grafo.
+        style_issues_dicts = [finding.model_dump() for finding in findings]
+
+        return {
+            "style_issues": style_issues_dicts,
+            "status": "style_analysis_completed",
+        }
+    except Exception as e:
+        # Registrar cualquier error del agente dentro del estado del grafo.
+        return {
+            "style_issues": [],
+            "status": "error",
+            "error_message": f"Error en style_analysis node: {str(e)}",
+        }
 
 # Nodo final encargado de consolidar los resultados.
 def consolidation(state: ReviewState) -> dict:
