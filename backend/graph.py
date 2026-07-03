@@ -5,6 +5,11 @@ from tools.github_tools import get_pr_diff
 from agents.bug_agent import analyze_bugs
 
 
+# Límites del MVP definidos en los requisitos (RS-01 y RS-02).
+LIMITE_ARCHIVOS = 5
+LIMITE_LINEAS = 1000
+
+
 # Estado compartido entre todos los nodos del grafo.
 class ReviewState(TypedDict):
     pr_url: str
@@ -32,9 +37,80 @@ def download_diff(state: ReviewState) -> dict:
         return {"raw_diff": "", "status": "error", "error_message": str(e)}
 
 
-# Nodo encargado de validar límites del MVP.
+# Cuenta archivos y líneas modificadas a partir del diff unificado de GitHub.
+def _contar_cambios(raw_diff: str) -> tuple[int, int]:
+    """
+    Recorre el diff en formato unified y devuelve (archivos, líneas_modificadas).
+
+    - Cada archivo del diff empieza por una cabecera 'diff --git ...'.
+    - Las líneas modificadas son las añadidas ('+') más las borradas ('-'),
+      excluyendo las cabeceras de fichero ('+++' y '---').
+    """
+    files_count = 0
+    changed_lines = 0
+
+    for line in raw_diff.splitlines():
+        if line.startswith("diff --git "):
+            files_count += 1
+        elif line.startswith("+") and not line.startswith("+++"):
+            changed_lines += 1
+        elif line.startswith("-") and not line.startswith("---"):
+            changed_lines += 1
+
+    return files_count, changed_lines
+
+
+# Nodo encargado de validar límites del MVP (RS-01 y RS-02).
 def validate_constraints(state: ReviewState) -> dict:
-    return {}
+    """
+    Cuenta los archivos y las líneas modificadas del diff descargado y detiene
+    el flujo con un mensaje de error si se superan los límites del MVP.
+
+    Guarda siempre 'files_count' y 'changed_lines' en el estado para que la
+    metadata y la consolidación posteriores puedan reutilizarlos.
+    """
+    # Si un nodo anterior ya registró un error (p.ej. fallo al descargar el diff),
+    # no tiene sentido seguir validando.
+    if state.get("error_message"):
+        return {}
+
+    raw_diff = state.get("raw_diff", "")
+    files_count, changed_lines = _contar_cambios(raw_diff)
+
+    # Métricas que se guardan pase lo que pase.
+    result: dict = {
+        "files_count": files_count,
+        "changed_lines": changed_lines,
+    }
+
+    # RS-01: máximo de archivos modificados.
+    if files_count > LIMITE_ARCHIVOS:
+        result["status"] = "error"
+        result["error_message"] = (
+            f"El Pull Request modifica {files_count} archivos y supera el "
+            f"máximo de {LIMITE_ARCHIVOS} permitido (RS-01). Este límite existe "
+            "porque el análisis con IA procesa el diff completo: con demasiados "
+            "archivos se agota la ventana de contexto del modelo y se dispara el "
+            "coste y el tiempo de respuesta. Divide el Pull Request en cambios "
+            "más pequeños y vuelve a intentarlo."
+        )
+        return result
+
+    # RS-02: máximo de líneas modificadas.
+    if changed_lines > LIMITE_LINEAS:
+        result["status"] = "error"
+        result["error_message"] = (
+            f"El Pull Request modifica {changed_lines} líneas y supera el "
+            f"máximo de {LIMITE_LINEAS} permitido (RS-02). Este límite evita "
+            "problemas de rendimiento y que el diff no quepa en la ventana de "
+            "contexto del modelo. Divide el Pull Request en cambios más pequeños "
+            "y vuelve a intentarlo."
+        )
+        return result
+
+    # Dentro de los límites: el flujo puede continuar hacia los agentes.
+    result["status"] = "constraints_validated"
+    return result
 
 
 # Nodo reservado para el análisis de bugs.
