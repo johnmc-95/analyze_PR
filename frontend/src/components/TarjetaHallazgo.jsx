@@ -50,7 +50,7 @@ function BloqueCodigo({ titulo, codigo, tipo }) {
   )
 }
 
-function FindingCard({ hallazgo }) {
+function TarjetaHallazgo({ hallazgo }) {
   const estiloSeveridad = ESTILOS_SEVERIDAD[hallazgo.severidad] ?? ESTILOS_SEVERIDAD.Baja
   const categoria = CATEGORIAS[hallazgo.categoria] ?? hallazgo.categoria ?? 'Sin categoría'
 
@@ -92,4 +92,4 @@ function FindingCard({ hallazgo }) {
   )
 }
 
-export default FindingCard
+export default TarjetaHallazgo

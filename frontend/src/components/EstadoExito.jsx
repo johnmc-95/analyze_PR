@@ -1,4 +1,4 @@
-import FindingCard from './FindingCard'
+import TarjetaHallazgo from './TarjetaHallazgo'
 
 function EstadoExito({ resultados }) {
   // Centraliza las métricas para renderizarlas con la misma estructura visual.
@@ -36,7 +36,7 @@ function EstadoExito({ resultados }) {
       </div>
       <div className="grid gap-3">
         {resultados.hallazgos.map((hallazgo) => (
-          <FindingCard key={hallazgo.id ?? `${hallazgo.archivo}-${hallazgo.linea}`} hallazgo={hallazgo} />
+          <TarjetaHallazgo key={hallazgo.id ?? `${hallazgo.archivo}-${hallazgo.linea}`} hallazgo={hallazgo} />
         ))}
       </div>
     </section>
