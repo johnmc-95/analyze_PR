@@ -1,16 +1,5 @@
-import json
-import os
-from typing import Any
-from dotenv import load_dotenv
-from groq import Groq
-
+from agents.groq_runner import run_groq_analysis
 from schemas import Finding
-
-# Cargar variables de entorno desde el archivo .env
-load_dotenv()
-
-# Obtener la API key de Groq desde el entorno
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 
 def analyze_bugs(raw_diff: str) -> list[Finding]:
@@ -27,10 +16,6 @@ def analyze_bugs(raw_diff: str) -> list[Finding]:
     # Si el diff está vacío, no hay nada que analizar
     if not raw_diff or not raw_diff.strip():
         return []
-
-    # Inicializar el cliente de Groq.
-    # Si no se proporciona explícitamente la API key, Groq la leerá de os.environ["GROQ_API_KEY"]
-    client = Groq(api_key=GROQ_API_KEY)
 
     # Definir el System Prompt en español con instrucciones detalladas de análisis
     system_prompt = (
@@ -56,38 +41,5 @@ def analyze_bugs(raw_diff: str) -> list[Finding]:
     # El User Prompt contiene el diff a analizar
     user_prompt = f"Aquí está el diff del Pull Request a analizar:\n\n{raw_diff}"
 
-    # Realizar la llamada a Groq
-    # Se utiliza response_format={"type": "json_object"} para forzar al modelo a responder con JSON válido.
-    try:
-        response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ],
-            response_format={"type": "json_object"},
-            temperature=0.1,  # Temperatura baja para mayor consistencia y menos creatividad lúdica
-        )
-    except Exception as e:
-        # En producción o integraciones complejas, se podría propagar o manejar. Aquí lo reportamos en el log.
-        raise RuntimeError(f"Error al llamar a la API de Groq: {str(e)}")
-
-    response_text = response.choices[0].message.content
-    if not response_text:
-        return []
-
-    # Parsear y validar los resultados usando Pydantic
-    try:
-        data = json.loads(response_text)
-        raw_findings = data.get("findings", [])
-        
-        findings = []
-        for raw_f in raw_findings:
-            # Asegurar que la categoría siempre sea 'bug' en caso de que el modelo haya fallado en esta instrucción
-            raw_f["category"] = "bug"
-            # Validar y crear la instancia del modelo Pydantic 'Finding'
-            findings.append(Finding(**raw_f))
-            
-        return findings
-    except (json.JSONDecodeError, TypeError, ValueError) as e:
-        raise ValueError(f"La respuesta de Groq no se pudo procesar como un listado válido de Finding: {str(e)}. Contenido: {response_text}")
+    # El helper ejecuta la llamada a Groq y traduce cualquier error externo (RF-08).
+    return run_groq_analysis(system_prompt, user_prompt, category="bug")

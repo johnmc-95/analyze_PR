@@ -1,3 +1,4 @@
+import pytest
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
@@ -17,6 +18,8 @@ MOCK_STATE_CLEAN = {
     "final_report": {},
     "status": "consolidation_completed",
     "error_message": None,
+    "error_status": None,
+    "error_code": None,
 }
 
 MOCK_STATE_WITH_FINDINGS = {
@@ -43,6 +46,8 @@ MOCK_STATE_ERROR = {
     **MOCK_STATE_CLEAN,
     "status": "error",
     "error_message": "El Pull Request modifica 6 archivos y supera el máximo de 5 permitido (RS-01).",
+    "error_status": 422,
+    "error_code": "CONSTRAINTS_EXCEEDED",
 }
 
 
@@ -109,3 +114,68 @@ def test_initiate_review_rejects_invalid_pull_request_path():
 
     assert response.status_code == 422
     assert "La URL debe tener el formato" in response.json()["detail"][0]["msg"]
+
+
+# ── RF-08: cada error externo se traduce a su código HTTP y mensaje seguro ────
+
+# (error_code, status_code, mensaje seguro de usuario) para cada caso externo.
+CASOS_ERROR_EXTERNO = [
+    ("PR_NOT_FOUND", 404, "No encontramos el Pull Request. Revisa que la URL sea correcta."),
+    ("REPO_FORBIDDEN", 403, "No tenemos acceso al repositorio. Puede que sea privado."),
+    ("GITHUB_RATE_LIMIT", 429, "GitHub ha limitado temporalmente las peticiones."),
+    ("GITHUB_TIMEOUT", 504, "GitHub tardó demasiado en responder."),
+    ("GITHUB_UNAVAILABLE", 502, "No pudimos conectar con GitHub."),
+    ("GROQ_TIMEOUT", 504, "El servicio de análisis con IA tardó demasiado en responder."),
+    ("GROQ_INFERENCE_ERROR", 502, "El servicio de análisis con IA no está disponible ahora mismo."),
+    ("GROQ_INVALID_RESPONSE", 502, "El servicio de análisis devolvió una respuesta inesperada."),
+]
+
+
+@pytest.mark.parametrize("error_code, status_code, mensaje", CASOS_ERROR_EXTERNO)
+def test_initiate_review_maps_external_error_to_http(error_code, status_code, mensaje):
+    """
+    El endpoint devuelve el código HTTP correcto y el mensaje seguro cuando el
+    grafo registra un error externo. El detail nunca contiene detalles técnicos.
+    """
+    estado_error = {
+        **MOCK_STATE_CLEAN,
+        "status": "error",
+        "error_message": mensaje,
+        "error_status": status_code,
+        "error_code": error_code,
+    }
+
+    with patch("main.review_graph.invoke", return_value=estado_error):
+        response = client.post(
+            "/review/initiate",
+            json={"pr_url": "https://github.com/example/project/pull/42"},
+        )
+
+    assert response.status_code == status_code
+    detail = response.json()["detail"]
+    assert detail == mensaje
+    # El mensaje no debe filtrar rastros técnicos internos.
+    for fuga in ("Traceback", "Exception", "str(e)", "httpx", "groq.", "API key"):
+        assert fuga not in detail
+
+
+@patch(
+    "main.review_graph.invoke",
+    return_value={
+        **MOCK_STATE_CLEAN,
+        "status": "error",
+        "error_message": "Ocurrió un error interno procesando la solicitud. Inténtalo de nuevo.",
+        # Sin error_status → main debe caer al 500 por defecto.
+        "error_status": None,
+        "error_code": "INTERNAL_ERROR",
+    },
+)
+def test_initiate_review_defaults_to_500_when_status_missing(mock_invoke):
+    """Si no hay error_status, la API responde 500 con un mensaje genérico seguro."""
+    response = client.post(
+        "/review/initiate",
+        json={"pr_url": "https://github.com/example/project/pull/42"},
+    )
+
+    assert response.status_code == 500
+    assert "error interno" in response.json()["detail"]

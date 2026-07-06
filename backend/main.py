@@ -35,13 +35,20 @@ async def initiate_review(request: ReviewRequest) -> ReviewResponse:
         "final_report": {},
         "status": "init",
         "error_message": None,
+        "error_status": None,
+        "error_code": None,
     }
 
     result = review_graph.invoke(initial_state)
 
-    # Si algún nodo registró un error (descarga, validación de límites, etc.), lo propagamos.
+    # Si algún nodo registró un error (descarga, límites, GitHub, Groq...), lo
+    # propagamos con el código HTTP adecuado (RF-08). El detail es siempre el
+    # mensaje seguro para el usuario; nunca detalles técnicos internos.
     if result.get("error_message"):
-        raise HTTPException(status_code=422, detail=result["error_message"])
+        raise HTTPException(
+            status_code=result.get("error_status") or 500,
+            detail=result["error_message"],
+        )
 
     # Consolidar los hallazgos de los tres agentes en una sola lista.
     all_findings = (
