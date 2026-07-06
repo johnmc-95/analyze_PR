@@ -1,6 +1,10 @@
 import TarjetaHallazgo from './TarjetaHallazgo'
+import EstadoClean from './EstadoClean'
 
 function EstadoExito({ resultados }) {
+  if (resultados.status === 'clean') {
+    return <EstadoClean resultados={resultados} />
+  }
   // Centraliza las métricas para renderizarlas con la misma estructura visual.
   const metricas = [
     ['Estado del análisis', `✓ ${resultados.estado}`, 'text-[#b4cea5]'],
