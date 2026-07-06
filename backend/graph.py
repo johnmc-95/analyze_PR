@@ -303,7 +303,7 @@ def consolidation(state: ReviewState) -> dict:
         ),
         findings=final_findings,
         metadata=Metadata(
-            model="llama-3.3-70b",
+            model="llama-3.3-70b-versatile",
             files_processed=state.get("files_count", 0),
             changed_lines=state.get("changed_lines", 0),
         ),
