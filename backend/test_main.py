@@ -14,7 +14,19 @@ MOCK_STATE_CLEAN = {
     "bug_issues": [],
     "security_issues": [],
     "style_issues": [],
-    "final_report": {},
+    "final_report": {
+        "summary": {
+            "status": "clean",
+            "total_issues": 0,
+            "global_comment": "¡Buen trabajo! El código analizado no presenta problemas relevantes.",
+        },
+        "findings": [],
+        "metadata": {
+            "model": "llama-3.3-70b-versatile",
+            "files_processed": 1,
+            "changed_lines": 1,
+        },
+    },
     "status": "consolidation_completed",
     "error_message": None,
 }
@@ -36,6 +48,31 @@ MOCK_STATE_WITH_FINDINGS = {
     ],
     "files_count": 2,
     "changed_lines": 15,
+    "final_report": {
+        "summary": {
+            "status": "issues_found",
+            "total_issues": 1,
+            "global_comment": "Se detectaron 1 hallazgos: 1 de bugs.",
+        },
+        "findings": [
+            {
+                "id": "ISSUE-001",
+                "file_name": "src/utils.py",
+                "line_number": 10,
+                "category": "bug",
+                "severity": "high",
+                "explanation": "División por cero potencial.",
+                "bad_example": "return x / y",
+                "refactor_suggestion": "Verificar que y != 0 antes de dividir.",
+                "code_fix": "return x / y if y != 0 else 0",
+            }
+        ],
+        "metadata": {
+            "model": "llama-3.3-70b-versatile",
+            "files_processed": 2,
+            "changed_lines": 15,
+        },
+    },
     "status": "consolidation_completed",
 }
 
@@ -75,7 +112,7 @@ def test_initiate_review_returns_findings(mock_invoke):
     assert body["summary"]["status"] == "issues_found"
     assert body["summary"]["total_issues"] == 1
     assert len(body["findings"]) == 1
-    assert body["findings"][0]["id"] == "BUG-001"
+    assert body["findings"][0]["id"] == "ISSUE-001"
     assert body["metadata"]["files_processed"] == 2
     assert body["metadata"]["changed_lines"] == 15
 
@@ -89,6 +126,17 @@ def test_initiate_review_returns_422_on_graph_error(mock_invoke):
 
     assert response.status_code == 422
     assert "RS-01" in response.json()["detail"]
+
+
+@patch("main.review_graph.invoke", return_value={**MOCK_STATE_CLEAN, "final_report": {}})
+def test_initiate_review_returns_500_without_final_report(mock_invoke):
+    response = client.post(
+        "/review/initiate",
+        json={"pr_url": "https://github.com/example/project/pull/42"},
+    )
+
+    assert response.status_code == 500
+    assert response.json()["detail"] == "El grafo no generó un reporte final."
 
 
 def test_initiate_review_rejects_non_github_url():
