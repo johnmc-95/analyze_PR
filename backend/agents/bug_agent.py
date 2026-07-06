@@ -34,8 +34,11 @@ def analyze_bugs(raw_diff: str) -> list[Finding]:
         "- code_fix (str | null): Fragmento de código corregido de manera limpia que reemplaza directamente al código problemático\n\n"
         "REGLAS CRÍTICAS:\n"
         "1. No reportes problemas de estilo, legibilidad o seguridad (ej. contraseñas expuestas). Céntrate solo en bugs, errores de ejecución, lógica errónea o problemas graves de rendimiento.\n"
-        "2. Si el diff no presenta ningún bug, error lógico ni problema de rendimiento, devuelve la lista vacía: {\"findings\": []}.\n"
-        "3. La salida debe ser estrictamente un JSON válido. No incluyes bloques de markdown (como ```json) ni explicaciones de texto fuera del JSON."
+        "2. Si el diff no presenta ningún bug real, error lógico crítico ni problema grave de rendimiento, devuelve la lista vacía: {\"findings\": []}. NO inventes bugs.\n"
+        "3. La salida debe ser estrictamente un JSON válido. No incluyes bloques de markdown (como ```json) ni explicaciones de texto fuera del JSON.\n"
+        "4. No reportes problemas hipotéticos de escalabilidad extrema o consumo de memoria (ej. fallos por memoria al usar 'set()' o listas) a menos que sea evidente que se procesan grandes volúmenes de datos masivos.\n"
+        "5. No exijas manejar casos 'vacíos' u 'opcionales' (ej. verificaciones redundantes de variables) si el contexto o el flujo principal ya es funcional. NO asumas que las variables de entorno o estados faltarán si el código está validado por Tipos o esquemas Pydantic / TypedDict.\n"
+        "6. PENALIZACIÓN: Serás penalizado si reportas falsos positivos o problemas teóricos improbables. Ante la duda, no lo reportes."
     )
 
     # El User Prompt contiene el diff a analizar
