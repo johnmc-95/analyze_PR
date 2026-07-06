@@ -36,7 +36,7 @@ function EstadoExito({ resultados }) {
       </div>
       <div className="grid gap-3">
         {resultados.hallazgos.map((hallazgo) => (
-          <TarjetaHallazgo key={`${hallazgo.archivo}-${hallazgo.linea}-${hallazgo.titulo}`} hallazgo={hallazgo} />
+          <TarjetaHallazgo key={hallazgo.id ?? `${hallazgo.archivo}-${hallazgo.linea}`} hallazgo={hallazgo} />
         ))}
       </div>
     </section>
