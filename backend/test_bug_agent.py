@@ -137,7 +137,9 @@ def test_bug_analysis_node_success(mock_analyze_bugs):
         "style_issues": [],
         "final_report": {},
         "status": "diff_downloaded",
-        "error_message": None
+        "error_message": None,
+        "error_status": None,
+        "error_code": None,
     }
 
     # Ejecutar el nodo
@@ -182,6 +184,8 @@ def test_bug_analysis_node_propagates_error(mock_analyze_bugs):
         "final_report": {},
         "status": "diff_downloaded",
         "error_message": None,
+        "error_status": None,
+        "error_code": None,
     }
 
     new_state = bug_analysis(initial_state)
@@ -209,7 +213,9 @@ def test_bug_analysis_node_skipped_if_previous_error():
         "style_issues": [],
         "final_report": {},
         "status": "error",
-        "error_message": "Error previo de descarga"
+        "error_message": "Error previo de descarga",
+        "error_status": 500,
+        "error_code": "INTERNAL_ERROR",
     }
 
     new_state = bug_analysis(initial_state)

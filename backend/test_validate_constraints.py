@@ -35,6 +35,8 @@ def _estado(raw_diff: str) -> ReviewState:
         "final_report": {},
         "status": "diff_downloaded",
         "error_message": None,
+        "error_status": None,
+        "error_code": None,
     }
 
 

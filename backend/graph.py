@@ -5,7 +5,7 @@ from tools.github_tools import get_pr_diff
 from agents.bug_agent import analyze_bugs
 from agents.security_agent import analyze_security
 from agents.style_agent import analyze_style
-from errors import ExternalServiceError
+from errors import ExternalServiceError, constraints_exceeded
 from observability import log_external_error
 
 
@@ -145,30 +145,39 @@ def validate_constraints(state: ReviewState) -> dict:
 
     # RS-01: máximo de archivos modificados.
     if files_count > LIMITE_ARCHIVOS:
+        err = constraints_exceeded(
+            user_message=(
+                f"El Pull Request modifica {files_count} archivos y supera el "
+                f"máximo de {LIMITE_ARCHIVOS} permitido (RS-01). Este límite existe "
+                "porque el análisis con IA procesa el diff completo: con demasiados "
+                "archivos se agota la ventana de contexto del modelo y se dispara el "
+                "coste y el tiempo de respuesta. Divide el Pull Request en cambios "
+                "más pequeños y vuelve a intentarlo."
+            ),
+            technical_detail=f"RS-01: {files_count} archivos > límite {LIMITE_ARCHIVOS}",
+        )
+        # Nodo secuencial: fijamos 'status' y registramos el error (logging/LangSmith).
         result["status"] = "error"
-        result["error_status"] = 422
-        result["error_code"] = "CONSTRAINTS_EXCEEDED"
-        result["error_message"] = (
-            f"El Pull Request modifica {files_count} archivos y supera el "
-            f"máximo de {LIMITE_ARCHIVOS} permitido (RS-01). Este límite existe "
-            "porque el análisis con IA procesa el diff completo: con demasiados "
-            "archivos se agota la ventana de contexto del modelo y se dispara el "
-            "coste y el tiempo de respuesta. Divide el Pull Request en cambios "
-            "más pequeños y vuelve a intentarlo."
+        result.update(
+            _registrar_error(err, pr_url=state.get("pr_url", ""), node="validate_constraints")
         )
         return result
 
     # RS-02: máximo de líneas modificadas.
     if changed_lines > LIMITE_LINEAS:
+        err = constraints_exceeded(
+            user_message=(
+                f"El Pull Request modifica {changed_lines} líneas y supera el "
+                f"máximo de {LIMITE_LINEAS} permitido (RS-02). Este límite evita "
+                "problemas de rendimiento y que el diff no quepa en la ventana de "
+                "contexto del modelo. Divide el Pull Request en cambios más pequeños "
+                "y vuelve a intentarlo."
+            ),
+            technical_detail=f"RS-02: {changed_lines} líneas > límite {LIMITE_LINEAS}",
+        )
         result["status"] = "error"
-        result["error_status"] = 422
-        result["error_code"] = "CONSTRAINTS_EXCEEDED"
-        result["error_message"] = (
-            f"El Pull Request modifica {changed_lines} líneas y supera el "
-            f"máximo de {LIMITE_LINEAS} permitido (RS-02). Este límite evita "
-            "problemas de rendimiento y que el diff no quepa en la ventana de "
-            "contexto del modelo. Divide el Pull Request en cambios más pequeños "
-            "y vuelve a intentarlo."
+        result.update(
+            _registrar_error(err, pr_url=state.get("pr_url", ""), node="validate_constraints")
         )
         return result
 

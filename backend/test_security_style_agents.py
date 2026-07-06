@@ -19,6 +19,8 @@ def _estado(raw_diff: str = "some diff content") -> ReviewState:
         "final_report": {},
         "status": "constraints_validated",
         "error_message": None,
+        "error_status": None,
+        "error_code": None,
     }
 
 

@@ -34,6 +34,26 @@ class ExternalServiceError(Exception):
         self.technical_detail = technical_detail
 
 
+# ── Validación de límites del MVP (RS-01 / RS-02) ────────────────────────────
+
+def constraints_exceeded(
+    user_message: str, technical_detail: str = ""
+) -> ExternalServiceError:
+    """
+    Error de negocio cuando el PR supera los límites del MVP (RS-01/RS-02).
+
+    Se modela como ExternalServiceError para que pase por la misma trazabilidad
+    (logging/LangSmith) que el resto de errores (RF-08). Devuelve 422 porque es
+    una restricción de la petición, no un fallo del servicio.
+    """
+    return ExternalServiceError(
+        status_code=422,
+        error_code="CONSTRAINTS_EXCEEDED",
+        user_message=user_message,
+        technical_detail=technical_detail,
+    )
+
+
 # ── GitHub ───────────────────────────────────────────────────────────────────
 
 def github_pr_not_found(technical_detail: str = "") -> ExternalServiceError:
