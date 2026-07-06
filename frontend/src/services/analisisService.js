@@ -50,13 +50,23 @@ function mapearRespuesta(data, url) {
 }
 
 export async function analizarPullRequest(url) {
-  const response = await fetch(`${BACKEND_URL}/review/initiate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ pr_url: url }),
-  })
+  let response
+  try {
+    response = await fetch(`${BACKEND_URL}/review/initiate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pr_url: url }),
+    })
+  } catch {
+    // La promesa de fetch solo se rechaza ante fallos de red (backend caído,
+    // sin conexión...). Mostramos un mensaje amigable en vez del error técnico.
+    throw new Error(
+      'No pudimos conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.',
+    )
+  }
 
   if (!response.ok) {
+    // El backend devuelve en `detail` un mensaje claro y seguro para el usuario (RF-08).
     const error = await response.json().catch(() => ({}))
     throw new Error(error.detail ?? 'Error al analizar el Pull Request.')
   }
