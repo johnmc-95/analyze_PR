@@ -40,11 +40,15 @@ function mapearRespuesta(data, url) {
     hallazgosEncontrados: data.summary?.total_issues ?? findings.length,
     nivelRiesgo: nivelRiesgoGlobal(findings),
     hallazgos: findings.map((f) => ({
+      id: f.id,
+      categoria: f.category,
       severidad: SEVERIDAD_MAP[f.severity] ?? 'Baja',
-      titulo: f.explanation,
+      explicacion: f.explanation,
       archivo: f.file_name,
       linea: f.line_number?.toString() ?? 'N/A',
       recomendacion: f.refactor_suggestion,
+      codigoMalo: f.bad_example,
+      codigoCorregido: f.code_fix,
     })),
   }
 }
