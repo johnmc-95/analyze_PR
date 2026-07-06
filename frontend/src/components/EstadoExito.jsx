@@ -1,6 +1,10 @@
 import TarjetaHallazgo from './TarjetaHallazgo'
+import EstadoClean from './EstadoClean'
 
 function EstadoExito({ resultados }) {
+  if (resultados.estadoAnalisis === 'clean') {
+    return <EstadoClean resultados={resultados} />
+  }
   // Centraliza las métricas para renderizarlas con la misma estructura visual.
   const metricas = [
     ['Estado del análisis', `✓ ${resultados.estado}`, 'text-[#b4cea5]'],
@@ -36,7 +40,7 @@ function EstadoExito({ resultados }) {
       </div>
       <div className="grid gap-3">
         {resultados.hallazgos.map((hallazgo) => (
-          <TarjetaHallazgo key={`${hallazgo.archivo}-${hallazgo.linea}-${hallazgo.titulo}`} hallazgo={hallazgo} />
+          <TarjetaHallazgo key={hallazgo.id ?? `${hallazgo.archivo}-${hallazgo.linea}`} hallazgo={hallazgo} />
         ))}
       </div>
     </section>

@@ -31,20 +31,27 @@ function nivelRiesgoGlobal(findings) {
 function mapearRespuesta(data, url) {
   const { repositorio, pullRequest } = extraerInfoPR(url)
   const findings = data.findings ?? []
+  const estadoAnalisis = data.summary?.status ?? 'issues_found'
 
   return {
-    estado: 'Completado',
+    estado: estadoAnalisis === 'clean' ? 'Limpio' : 'Completado',
+    estadoAnalisis,
     repositorio,
     pullRequest,
+    mensajeIA: data.summary?.global_comment ?? '',
     archivosAnalizados: data.metadata?.files_processed ?? 0,
     hallazgosEncontrados: data.summary?.total_issues ?? findings.length,
     nivelRiesgo: nivelRiesgoGlobal(findings),
     hallazgos: findings.map((f) => ({
+      id: f.id,
+      categoria: f.category,
       severidad: SEVERIDAD_MAP[f.severity] ?? 'Baja',
-      titulo: f.explanation,
+      explicacion: f.explanation,
       archivo: f.file_name,
       linea: f.line_number?.toString() ?? 'N/A',
       recomendacion: f.refactor_suggestion,
+      codigoMalo: f.bad_example,
+      codigoCorregido: f.code_fix,
     })),
   }
 }

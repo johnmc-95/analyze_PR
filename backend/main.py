@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from graph import review_graph
-from schemas import Finding, Metadata, ReviewRequest, ReviewResponse, Summary
+from schemas import ReviewRequest, ReviewResponse
 
 # Inicializar FastAPI
 app = FastAPI()
@@ -50,30 +50,12 @@ async def initiate_review(request: ReviewRequest) -> ReviewResponse:
             detail=result["error_message"],
         )
 
-    # Consolidar los hallazgos de los tres agentes en una sola lista.
-    all_findings = (
-        result.get("bug_issues", [])
-        + result.get("security_issues", [])
-        + result.get("style_issues", [])
-    )
+    # El nodo consolidation es responsable de deduplicar, reasignar IDs y generar el contrato final.
+    final_report = result.get("final_report")
+    if not final_report:
+        raise HTTPException(
+            status_code=500,
+            detail="El grafo no generó un reporte final.",
+        )
 
-    findings = [Finding(**f) for f in all_findings]
-    total = len(findings)
-
-    return ReviewResponse(
-        summary=Summary(
-            status="issues_found" if total > 0 else "clean",
-            total_issues=total,
-            global_comment=(
-                f"Se encontraron {total} hallazgos en el Pull Request."
-                if total > 0
-                else "No se encontraron problemas en el Pull Request."
-            ),
-        ),
-        findings=findings,
-        metadata=Metadata(
-            model="llama-3.3-70b-versatile",
-            files_processed=result.get("files_count", 0),
-            changed_lines=result.get("changed_lines", 0),
-        ),
-    )
+    return ReviewResponse(**final_report)
