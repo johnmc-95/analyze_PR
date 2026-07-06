@@ -5,6 +5,7 @@ from tools.github_tools import get_pr_diff
 from agents.bug_agent import analyze_bugs
 from agents.security_agent import analyze_security
 from agents.style_agent import analyze_style
+from schemas import Finding, Metadata, ReviewResponse, Summary
 
 
 # Límites del MVP definidos en los requisitos (RS-01 y RS-02).
@@ -205,9 +206,113 @@ def style_analysis(state: ReviewState) -> dict:
             "error_message": f"Error en style_analysis node: {str(e)}",
         }
 
+
+def _normalizar_texto(value: str | None) -> str:
+    """Normaliza texto para comparar hallazgos y detectar duplicados."""
+    if not value:
+        return ""
+    return " ".join(value.lower().strip().split())
+
+
+def _dedupe_findings(findings: list[dict]) -> list[dict]:
+    """Elimina hallazgos duplicados conservando la primera aparición."""
+    unique_findings = []
+    seen_keys = set()
+
+    for finding in findings:
+        # Combinamos campos estables para detectar el mismo problema repetido.
+        duplicate_key = (
+            finding.get("file_name", "").lower().strip(),
+            finding.get("line_number"),
+            _normalizar_texto(finding.get("explanation")),
+            _normalizar_texto(finding.get("bad_example")),
+        )
+
+        if duplicate_key in seen_keys:
+            continue
+
+        seen_keys.add(duplicate_key)
+        unique_findings.append(finding)
+
+    return unique_findings
+
+
+def _build_global_comment(total_issues: int, findings: list[dict]) -> str:
+    """Genera un resumen breve del resultado del análisis."""
+    if total_issues == 0:
+        return "¡Buen trabajo! El código analizado no presenta problemas relevantes."
+
+    issues_by_category = {
+        "bug": 0,
+        "security": 0,
+        "style": 0,
+    }
+
+    for finding in findings:
+        category = finding.get("category")
+        if category in issues_by_category:
+            issues_by_category[category] += 1
+
+    parts = []
+    if issues_by_category["bug"]:
+        parts.append(f"{issues_by_category['bug']} de bugs")
+    if issues_by_category["security"]:
+        parts.append(f"{issues_by_category['security']} de seguridad")
+    if issues_by_category["style"]:
+        parts.append(f"{issues_by_category['style']} de estilo")
+
+    return f"Se detectaron {total_issues} hallazgos: " + ", ".join(parts) + "."
+
+
 # Nodo final encargado de consolidar los resultados.
 def consolidation(state: ReviewState) -> dict:
-    return {}
+    """
+    Unifica los hallazgos de los tres agentes, elimina duplicados,
+    reasigna IDs únicos y construye el JSON final del contrato ReviewResponse.
+    """
+    # Unificar resultados de los tres agentes especializados.
+    all_findings = (
+        state.get("bug_issues", [])
+        + state.get("security_issues", [])
+        + state.get("style_issues", [])
+    )
+
+    # Eliminar duplicados entre agentes antes de generar IDs finales.
+    unique_findings = _dedupe_findings(all_findings)
+
+    final_findings = []
+    for index, finding in enumerate(unique_findings, start=1):
+        # Reasignar IDs secuenciales según el contrato final.
+        normalized_finding = {
+            **finding,
+            "id": f"ISSUE-{index:03d}",
+        }
+
+        # Validar cada hallazgo contra el modelo Pydantic.
+        final_findings.append(Finding(**normalized_finding).model_dump())
+
+    total_issues = len(final_findings)
+    status = "issues_found" if total_issues > 0 else "clean"
+
+    # Construir respuesta final validada con Pydantic.
+    final_report = ReviewResponse(
+        summary=Summary(
+            status=status,
+            total_issues=total_issues,
+            global_comment=_build_global_comment(total_issues, final_findings),
+        ),
+        findings=final_findings,
+        metadata=Metadata(
+            model="llama-3.3-70b",
+            files_processed=state.get("files_count", 0),
+            changed_lines=state.get("changed_lines", 0),
+        ),
+    ).model_dump()
+
+    return {
+        "final_report": final_report,
+        "status": status,
+    }
 
 
 # Construye y compila el grafo de revisión.
