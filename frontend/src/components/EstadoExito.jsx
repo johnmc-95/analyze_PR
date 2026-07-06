@@ -2,7 +2,7 @@ import TarjetaHallazgo from './TarjetaHallazgo'
 import EstadoClean from './EstadoClean'
 
 function EstadoExito({ resultados }) {
-  if (resultados.status === 'clean') {
+  if (resultados.estadoAnalisis === 'clean') {
     return <EstadoClean resultados={resultados} />
   }
   // Centraliza las métricas para renderizarlas con la misma estructura visual.

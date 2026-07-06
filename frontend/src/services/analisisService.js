@@ -31,11 +31,11 @@ function nivelRiesgoGlobal(findings) {
 function mapearRespuesta(data, url) {
   const { repositorio, pullRequest } = extraerInfoPR(url)
   const findings = data.findings ?? []
-  const status = data.summary?.status ?? 'issues_found'
+  const estadoAnalisis = data.summary?.status ?? 'issues_found'
 
   return {
-    estado: status === 'clean' ? 'Limpio' : 'Completado',
-    status,
+    estado: estadoAnalisis === 'clean' ? 'Limpio' : 'Completado',
+    estadoAnalisis,
     repositorio,
     pullRequest,
     mensajeIA: data.summary?.global_comment ?? '',
