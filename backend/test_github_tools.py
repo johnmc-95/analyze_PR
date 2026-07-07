@@ -3,7 +3,7 @@ import pytest
 from unittest.mock import MagicMock, patch
 
 from errors import ExternalServiceError
-from tools.github_tools import get_pr_diff
+from tools.github_tools import get_pr_diff, _parse_pr_url
 
 PR_URL = "https://github.com/example/project/pull/42"
 
@@ -96,3 +96,38 @@ def test_get_pr_diff_no_filtra_detalles_tecnicos(mock_get):
     with pytest.raises(ExternalServiceError) as excinfo:
         get_pr_diff(PR_URL)
     assert "127.0.0.1" not in excinfo.value.user_message
+
+
+def test_parse_pr_url_valid():
+    """
+    Verifica que la función interna _parse_pr_url extraiga correctamente 
+    el owner, repo y número de PR de una URL estándar de GitHub.
+    Es vital para garantizar que las peticiones a la API de GitHub apunten al lugar correcto.
+    """
+    owner, repo, pr_number = _parse_pr_url("https://github.com/example-owner/example-repo/pull/123")
+    assert owner == "example-owner"
+    assert repo == "example-repo"
+    assert pr_number == "123"
+
+
+def test_parse_pr_url_with_trailing_slash():
+    """
+    Comprueba la resiliencia de la extracción ante URLs que terminan con una barra (/).
+    Evitamos que el sistema rechace peticiones válidas solo por un error tipográfico
+    menor al copiar y pegar la URL.
+    """
+    owner, repo, pr_number = _parse_pr_url("https://github.com/example-owner/example-repo/pull/123/")
+    assert owner == "example-owner"
+    assert repo == "example-repo"
+    assert pr_number == "123"
+
+
+def test_parse_pr_url_invalid():
+    """
+    Asegura que se arroje de inmediato un ValueError si la URL introducida no
+    tiene la estructura estricta esperada (por ejemplo apuntar a un /issue/ en vez de /pull/).
+    De esta forma prevenimos fallos silenciosos y llamadas innecesarias a la API externa.
+    """
+    with pytest.raises(ValueError, match="URL de PR no válida"):
+        _parse_pr_url("https://github.com/example-owner/example-repo/issues/123")
+
