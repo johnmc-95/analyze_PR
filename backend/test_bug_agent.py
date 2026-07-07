@@ -2,13 +2,15 @@ import pytest
 from unittest.mock import MagicMock, patch
 
 from agents.bug_agent import analyze_bugs
+from errors import ExternalServiceError
 from graph import bug_analysis, ReviewState
 from schemas import Finding
 
 
 # ── Tests de la función analyze_bugs con Mock de Groq ─────────────────
 
-@patch("agents.bug_agent.Groq")
+# El cliente de Groq vive ahora en el helper compartido agents.groq_runner.
+@patch("agents.groq_runner.Groq")
 def test_analyze_bugs_success(mock_groq_class):
     """
     Verifica que la función analyze_bugs procese correctamente una respuesta JSON válida
@@ -68,24 +70,29 @@ def test_analyze_bugs_success(mock_groq_class):
     assert kwargs["response_format"] == {"type": "json_object"}
 
 
-@patch("agents.bug_agent.Groq")
+@patch("agents.groq_runner.Groq")
 def test_analyze_bugs_invalid_json(mock_groq_class):
     """
-    Verifica que la función lance ValueError si la respuesta del modelo no es un JSON válido.
+    Si la respuesta del modelo no es un JSON válido, se lanza un
+    ExternalServiceError con código GROQ_INVALID_RESPONSE y mensaje seguro (RF-08).
     """
     mock_client = MagicMock()
     mock_groq_class.return_value = mock_client
-    
+
     mock_completion = MagicMock()
     mock_completion.choices = [
         MagicMock(message=MagicMock(content="Texto plano que no es JSON válido"))
     ]
     mock_client.chat.completions.create.return_value = mock_completion
 
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(ExternalServiceError) as excinfo:
         analyze_bugs("dummy diff")
-    
-    assert "no se pudo procesar como un listado válido de Finding" in str(excinfo.value)
+
+    err = excinfo.value
+    assert err.error_code == "GROQ_INVALID_RESPONSE"
+    assert err.status_code == 502
+    # El mensaje de usuario NO debe filtrar el contenido crudo de la respuesta.
+    assert "Texto plano" not in err.user_message
 
 
 def test_analyze_bugs_empty_diff():
@@ -130,7 +137,9 @@ def test_bug_analysis_node_success(mock_analyze_bugs):
         "style_issues": [],
         "final_report": {},
         "status": "diff_downloaded",
-        "error_message": None
+        "error_message": None,
+        "error_status": None,
+        "error_code": None,
     }
 
     # Ejecutar el nodo
@@ -156,10 +165,13 @@ def test_bug_analysis_node_success(mock_analyze_bugs):
 @patch("graph.analyze_bugs")
 def test_bug_analysis_node_propagates_error(mock_analyze_bugs):
     """
-    Verifica que si el agente de bugs lanza un error, el nodo registre el error
-    en 'error_message' y cambie el estado a 'error'.
+    Si el agente de bugs lanza un ExternalServiceError, el nodo lo registra en el
+    estado con su mensaje seguro, código HTTP y código de error (RF-08), sin tocar
+    'status' (es un nodo paralelo) ni filtrar el detalle técnico.
     """
-    mock_analyze_bugs.side_effect = RuntimeError("Conexión con Groq perdida")
+    from errors import groq_inference_error
+
+    mock_analyze_bugs.side_effect = groq_inference_error("Conexión con Groq perdida")
 
     initial_state: ReviewState = {
         "pr_url": "https://github.com/example/project/pull/1",
@@ -171,15 +183,18 @@ def test_bug_analysis_node_propagates_error(mock_analyze_bugs):
         "style_issues": [],
         "final_report": {},
         "status": "diff_downloaded",
-        "error_message": None
+        "error_message": None,
+        "error_status": None,
+        "error_code": None,
     }
 
-    # Ejecutar el nodo
     new_state = bug_analysis(initial_state)
 
-    # El nodo paralelo no escribe status; solo propaga error_message
+    # El nodo paralelo no escribe status; solo propaga los metadatos de error.
     assert "status" not in new_state
-    assert "Error en bug_analysis node: Conexión con Groq perdida" in new_state["error_message"]
+    assert new_state["error_status"] == 502
+    assert new_state["error_code"] == "GROQ_INFERENCE_ERROR"
+    assert "Conexión con Groq perdida" not in new_state["error_message"]
     assert new_state["bug_issues"] == []
 
 
@@ -198,7 +213,9 @@ def test_bug_analysis_node_skipped_if_previous_error():
         "style_issues": [],
         "final_report": {},
         "status": "error",
-        "error_message": "Error previo de descarga"
+        "error_message": "Error previo de descarga",
+        "error_status": 500,
+        "error_code": "INTERNAL_ERROR",
     }
 
     new_state = bug_analysis(initial_state)

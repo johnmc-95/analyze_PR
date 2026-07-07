@@ -101,7 +101,7 @@ START
   -> END
 ```
 
-El nodo `bug_analysis` está completamente operativo y conectado a la API de Groq (`llama-3.3-70b-versatile`). Los nodos `security_analysis` y `style_analysis` actualmente existen como stubs (devuelven diccionarios vacíos `{}`) listos para ser implementados en las siguientes tareas.
+Los tres nodos de análisis (`bug_analysis`, `security_analysis`, `style_analysis`) están operativos y conectados a la API de Groq (`llama-3.3-70b-versatile`). Se ejecutan en paralelo y sus resultados se unen en `consolidation`.
 
 ### Verificar compilación
 
@@ -118,6 +118,46 @@ Si aparece el mensaje, LangGraph está instalado y el grafo se ha construido sin
 La carpeta `tools/` contiene las funciones que usan los nodos internamente.
 
 - `tools/github_tools.py` — descarga el diff de un PR desde la API de GitHub. Lo usa el nodo `download_diff`.
+
+---
+
+## Manejo de errores de servicios externos (RF-08)
+
+Todos los errores de **GitHub** y **Groq** se traducen a una respuesta HTTP con el código adecuado y un mensaje claro para el usuario, **sin exponer detalles técnicos internos**. Además, cada error queda registrado para trazabilidad.
+
+### Archivos implicados
+
+- **`errors.py`** — define la excepción `ExternalServiceError` (con `status_code`, `error_code`, `user_message` y `technical_detail`) y las fábricas por caso. **Aquí viven todos los mensajes seguros de usuario**, centralizados en un solo sitio.
+- **`observability.py`** — `log_external_error(...)` registra el error **siempre** en el logging estándar y, si hay `LANGSMITH_API_KEY`, además lo envía a **LangSmith**. Sin key funciona igual (no rompe dev ni tests).
+- **`agents/groq_runner.py`** — helper compartido `run_groq_analysis(...)` que ejecuta la llamada a Groq para los 3 agentes (elimina la duplicación) y traduce los errores de Groq a `ExternalServiceError`.
+- **`tools/github_tools.py`** — traduce los errores de la API de GitHub (404, 403, 429, timeout, conexión).
+- **`graph.py`** — los nodos capturan las excepciones y guardan los metadatos de error en el estado (`error_message`, `error_status`, `error_code`) mediante `_registrar_error(...)`. Las claves de error usan un *reducer* para tolerar que los 3 nodos paralelos fallen a la vez.
+- **`main.py`** — devuelve `HTTPException(status_code=error_status, detail=error_message)`; el `detail` es siempre el mensaje seguro.
+
+### Taxonomía de errores
+
+| Origen | Situación | HTTP | `error_code` |
+|--------|-----------|------|--------------|
+| GitHub | PR inexistente | 404 | `PR_NOT_FOUND` |
+| GitHub | Repo privado / sin permisos | 403 | `REPO_FORBIDDEN` |
+| GitHub | Rate limit (429 o 403 con cuota agotada) | 429 | `GITHUB_RATE_LIMIT` |
+| GitHub | Timeout | 504 | `GITHUB_TIMEOUT` |
+| GitHub | Conexión / otro error | 502 | `GITHUB_UNAVAILABLE` |
+| Groq | Timeout | 504 | `GROQ_TIMEOUT` |
+| Groq | Fallo de inferencia | 502 | `GROQ_INFERENCE_ERROR` |
+| Groq | Respuesta inválida (no parseable) | 502 | `GROQ_INVALID_RESPONSE` |
+| Límites RS-01 / RS-02 | PR demasiado grande | 422 | `CONSTRAINTS_EXCEEDED` |
+| Inesperado | Error interno no controlado | 500 | `INTERNAL_ERROR` |
+
+> El `technical_detail` (excepción real, cuerpo de la respuesta, etc.) **solo** va a logging/LangSmith, **nunca** al `detail` HTTP que ve el usuario.
+
+### API keys (sin cambios)
+
+Las claves siguen saliendo del `.env` local de cada persona (`GROQ_API_KEY`, `GITHUB_TOKEN`, `LANGSMITH_API_KEY`). La única diferencia es que la key de Groq ahora se lee una sola vez en `agents/groq_runner.py` en lugar de repetirse en cada agente. `LANGSMITH_API_KEY` es **opcional**: sin ella, los errores se registran solo por logging.
+
+### En el frontend
+
+El backend envía en `detail` un mensaje claro; `analisisService.js` lo lanza como `Error`, `App.jsx` lo guarda y `EstadoError.jsx` lo muestra al usuario (con un fallback genérico si no hubiera mensaje).
 
 ---
 

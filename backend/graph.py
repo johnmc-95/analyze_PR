@@ -1,16 +1,30 @@
-from typing import TypedDict
+from typing import Annotated, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 from tools.github_tools import get_pr_diff
 from agents.bug_agent import analyze_bugs
 from agents.security_agent import analyze_security
 from agents.style_agent import analyze_style
+from errors import ExternalServiceError, constraints_exceeded
+from observability import log_external_error
 from schemas import Finding, Metadata, ReviewResponse, Summary
 
 
 # Límites del MVP definidos en los requisitos (RS-01 y RS-02).
 LIMITE_ARCHIVOS = 5
 LIMITE_LINEAS = 1000
+
+
+def _conservar_primer_error(existente, nuevo):
+    """
+    Reducer para las claves de error del estado.
+
+    Los nodos de análisis (bug/security/style) se ejecutan en paralelo. Si un
+    servicio externo cae, los tres pueden fallar en el mismo superstep y escribir
+    estas claves a la vez. Sin un reducer, LangGraph aborta con InvalidUpdateError.
+    Nos quedamos con el primer error registrado (todos describen la misma causa).
+    """
+    return existente if existente is not None else nuevo
 
 
 # Estado compartido entre todos los nodos del grafo.
@@ -24,7 +38,46 @@ class ReviewState(TypedDict):
     style_issues: list
     final_report: dict
     status: str
-    error_message: str | None
+    # Claves de error (RF-08) con reducer para tolerar fallos simultáneos de los
+    # nodos paralelos: mensaje seguro, código HTTP y código estable de error.
+    error_message: Annotated[str | None, _conservar_primer_error]
+    error_status: Annotated[int | None, _conservar_primer_error]
+    error_code: Annotated[str | None, _conservar_primer_error]
+
+
+def _registrar_error(err: Exception, *, pr_url: str, node: str) -> dict:
+    """
+    Traduce una excepción de un nodo a los campos de error del estado (RF-08).
+
+    - Si es un ExternalServiceError, usa su código HTTP, su código estable y su
+      mensaje seguro para el usuario.
+    - Cualquier otra excepción se trata como error interno (500) con un mensaje
+      genérico; el detalle real solo se registra en logging/LangSmith.
+
+    No escribe 'status' para no colisionar entre los nodos paralelos; ese campo lo
+    fija el nodo secuencial (download_diff) cuando corresponde. En ambos casos deja
+    constancia del error en la trazabilidad.
+    """
+    if isinstance(err, ExternalServiceError):
+        external = err
+    else:
+        external = ExternalServiceError(
+            status_code=500,
+            error_code="INTERNAL_ERROR",
+            user_message=(
+                "Ocurrió un error interno procesando la solicitud. "
+                "Inténtalo de nuevo."
+            ),
+            technical_detail=f"{type(err).__name__}: {err}",
+        )
+
+    log_external_error(external, pr_url=pr_url, node=node)
+
+    return {
+        "error_message": external.user_message,
+        "error_status": external.status_code,
+        "error_code": external.error_code,
+    }
 
 
 # Nodo encargado de descargar el diff del Pull Request.
@@ -37,7 +90,12 @@ def download_diff(state: ReviewState) -> dict:
         diff = get_pr_diff(state["pr_url"])
         return {"raw_diff": diff, "status": "diff_downloaded"}
     except Exception as e:
-        return {"raw_diff": "", "status": "error", "error_message": str(e)}
+        # download_diff es secuencial, así que aquí sí podemos fijar 'status'.
+        return {
+            "raw_diff": "",
+            "status": "error",
+            **_registrar_error(e, pr_url=state.get("pr_url", ""), node="download_diff"),
+        }
 
 
 # Cuenta archivos y líneas modificadas a partir del diff unificado de GitHub.
@@ -88,26 +146,39 @@ def validate_constraints(state: ReviewState) -> dict:
 
     # RS-01: máximo de archivos modificados.
     if files_count > LIMITE_ARCHIVOS:
+        err = constraints_exceeded(
+            user_message=(
+                f"El Pull Request modifica {files_count} archivos y supera el "
+                f"máximo de {LIMITE_ARCHIVOS} permitido (RS-01). Este límite existe "
+                "porque el análisis con IA procesa el diff completo: con demasiados "
+                "archivos se agota la ventana de contexto del modelo y se dispara el "
+                "coste y el tiempo de respuesta. Divide el Pull Request en cambios "
+                "más pequeños y vuelve a intentarlo."
+            ),
+            technical_detail=f"RS-01: {files_count} archivos > límite {LIMITE_ARCHIVOS}",
+        )
+        # Nodo secuencial: fijamos 'status' y registramos el error (logging/LangSmith).
         result["status"] = "error"
-        result["error_message"] = (
-            f"El Pull Request modifica {files_count} archivos y supera el "
-            f"máximo de {LIMITE_ARCHIVOS} permitido (RS-01). Este límite existe "
-            "porque el análisis con IA procesa el diff completo: con demasiados "
-            "archivos se agota la ventana de contexto del modelo y se dispara el "
-            "coste y el tiempo de respuesta. Divide el Pull Request en cambios "
-            "más pequeños y vuelve a intentarlo."
+        result.update(
+            _registrar_error(err, pr_url=state.get("pr_url", ""), node="validate_constraints")
         )
         return result
 
     # RS-02: máximo de líneas modificadas.
     if changed_lines > LIMITE_LINEAS:
+        err = constraints_exceeded(
+            user_message=(
+                f"El Pull Request modifica {changed_lines} líneas y supera el "
+                f"máximo de {LIMITE_LINEAS} permitido (RS-02). Este límite evita "
+                "problemas de rendimiento y que el diff no quepa en la ventana de "
+                "contexto del modelo. Divide el Pull Request en cambios más pequeños "
+                "y vuelve a intentarlo."
+            ),
+            technical_detail=f"RS-02: {changed_lines} líneas > límite {LIMITE_LINEAS}",
+        )
         result["status"] = "error"
-        result["error_message"] = (
-            f"El Pull Request modifica {changed_lines} líneas y supera el "
-            f"máximo de {LIMITE_LINEAS} permitido (RS-02). Este límite evita "
-            "problemas de rendimiento y que el diff no quepa en la ventana de "
-            "contexto del modelo. Divide el Pull Request en cambios más pequeños "
-            "y vuelve a intentarlo."
+        result.update(
+            _registrar_error(err, pr_url=state.get("pr_url", ""), node="validate_constraints")
         )
         return result
 
@@ -140,10 +211,10 @@ def bug_analysis(state: ReviewState) -> dict:
         bug_issues_dicts = [finding.model_dump() for finding in findings]
         return {"bug_issues": bug_issues_dicts}
     except Exception as e:
-        # Capturamos cualquier error en la llamada o en la validación
+        # Capturamos cualquier error en la llamada o en la validación (RF-08).
         return {
             "bug_issues": [],
-            "error_message": f"Error en bug_analysis node: {str(e)}"
+            **_registrar_error(e, pr_url=state.get("pr_url", ""), node="bug_analysis"),
         }
 
 
@@ -170,10 +241,12 @@ def security_analysis(state: ReviewState) -> dict:
 
         return {"security_issues": security_issues_dicts}
     except Exception as e:
-        # Registrar cualquier error del agente dentro del estado del grafo.
+        # Registrar cualquier error del agente dentro del estado del grafo (RF-08).
         return {
             "security_issues": [],
-            "error_message": f"Error en security_analysis node: {str(e)}",
+            **_registrar_error(
+                e, pr_url=state.get("pr_url", ""), node="security_analysis"
+            ),
         }
 
 
@@ -200,10 +273,10 @@ def style_analysis(state: ReviewState) -> dict:
 
         return {"style_issues": style_issues_dicts}
     except Exception as e:
-        # Registrar cualquier error del agente dentro del estado del grafo.
+        # Registrar cualquier error del agente dentro del estado del grafo (RF-08).
         return {
             "style_issues": [],
-            "error_message": f"Error en style_analysis node: {str(e)}",
+            **_registrar_error(e, pr_url=state.get("pr_url", ""), node="style_analysis"),
         }
 
 

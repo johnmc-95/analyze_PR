@@ -18,18 +18,24 @@ function App() {
   const [url, setUrl] = useState('')
   const [estadoAnalisis, setEstadoAnalisis] = useState(ESTADOS.INICIAL)
   const [error, setError] = useState('')
+  // Mensaje del error del análisis (RF-08). Es independiente de `error`, que se
+  // usa para la validación inline de la URL bajo el input del formulario.
+  const [mensajeError, setMensajeError] = useState('')
   const [resultados, setResultados] = useState(null)
 
   const ejecutarAnalisis = async (urlValida) => {
     setError('')
+    setMensajeError('')
     setEstadoAnalisis(ESTADOS.CARGANDO)
 
     try {
       const respuesta = await analizarPullRequest(urlValida)
       setResultados(respuesta)
       setEstadoAnalisis(ESTADOS.EXITO)
-    } catch {
+    } catch (e) {
+      // Mostramos el mensaje claro que envía el backend (o el de fallo de red).
       setResultados(null)
+      setMensajeError(e.message)
       setEstadoAnalisis(ESTADOS.ERROR)
     }
   }
@@ -37,6 +43,7 @@ function App() {
   const reintentar = () => {
     setEstadoAnalisis(ESTADOS.INICIAL)
     setError('')
+    setMensajeError('')
   }
 
   return (
@@ -78,7 +85,9 @@ function App() {
           {estadoAnalisis === ESTADOS.INICIAL && <EstadoInicial />}
           {estadoAnalisis === ESTADOS.CARGANDO && <EstadoCarga />}
           {estadoAnalisis === ESTADOS.EXITO && <EstadoExito resultados={resultados} />}
-          {estadoAnalisis === ESTADOS.ERROR && <EstadoError onReintentar={reintentar} />}
+          {estadoAnalisis === ESTADOS.ERROR && (
+            <EstadoError mensaje={mensajeError} onReintentar={reintentar} />
+          )}
         </div>
       </main>
 

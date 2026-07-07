@@ -1,17 +1,5 @@
-import json
-import os
-
-from dotenv import load_dotenv
-from groq import Groq
-
+from agents.groq_runner import run_groq_analysis
 from schemas import Finding
-
-
-# Cargar variables de entorno desde el archivo .env.
-load_dotenv()
-
-# API key usada por el cliente de Groq.
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 
 def analyze_security(raw_diff: str) -> list[Finding]:
@@ -22,9 +10,6 @@ def analyze_security(raw_diff: str) -> list[Finding]:
     # Si el diff está vacío, no hay nada que analizar.
     if not raw_diff or not raw_diff.strip():
         return []
-
-    # Cliente de Groq configurado con la API key del entorno.
-    client = Groq(api_key=GROQ_API_KEY)
 
     # Prompt especializado en vulnerabilidades, OWASP Top 10 e inyecciones.
     system_prompt = (
@@ -53,39 +38,5 @@ def analyze_security(raw_diff: str) -> list[Finding]:
     # Prompt de usuario con el diff concreto a revisar.
     user_prompt = f"Aquí está el diff del Pull Request a analizar:\n\n{raw_diff}"
 
-    try:
-        # Llamada al modelo forzando respuesta JSON.
-        response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            response_format={"type": "json_object"},
-            temperature=0.1,
-        )
-    except Exception as e:
-        # Propagamos un error claro para que el nodo del grafo lo registre.
-        raise RuntimeError(f"Error al llamar a la API de Groq: {str(e)}")
-
-    response_text = response.choices[0].message.content
-    if not response_text:
-        return []
-
-    try:
-        # Parsear JSON y validar cada hallazgo con el modelo Finding.
-        data = json.loads(response_text)
-        raw_findings = data.get("findings", [])
-
-        findings = []
-        for raw_f in raw_findings:
-            # Forzamos la categoría correcta aunque el modelo se equivoque.
-            raw_f["category"] = "security"
-            findings.append(Finding(**raw_f))
-
-        return findings
-    except (json.JSONDecodeError, TypeError, ValueError) as e:
-        raise ValueError(
-            "La respuesta de Groq no se pudo procesar como un listado válido "
-            f"de Finding: {str(e)}. Contenido: {response_text}"
-        )
+    # El helper ejecuta la llamada a Groq y traduce cualquier error externo (RF-08).
+    return run_groq_analysis(system_prompt, user_prompt, category="security")

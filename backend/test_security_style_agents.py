@@ -19,10 +19,12 @@ def _estado(raw_diff: str = "some diff content") -> ReviewState:
         "final_report": {},
         "status": "constraints_validated",
         "error_message": None,
+        "error_status": None,
+        "error_code": None,
     }
 
 
-@patch("agents.security_agent.Groq")
+@patch("agents.groq_runner.Groq")
 def test_analyze_security_success(mock_groq_class):
     """Comprueba que el agente de seguridad convierte JSON válido en Finding."""
     mock_client = MagicMock()
@@ -60,7 +62,7 @@ def test_analyze_security_success(mock_groq_class):
     assert results[0].id == "SEC-001"
 
 
-@patch("agents.style_agent.Groq")
+@patch("agents.groq_runner.Groq")
 def test_analyze_style_success(mock_groq_class):
     """Comprueba que el agente de estilo convierte JSON válido en Finding."""
     mock_client = MagicMock()
