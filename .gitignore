@@ -37,5 +37,8 @@ dist/
 .DS_Store
 Thumbs.db
 
-# modelos gratis
+# ── Modelos gratuitos ─────────────────────────────────────────────
 modelos_gratis.md
+
+# ── Explicación técnica ─────────────────────────────────────────────
+README_EXPLICACION_TESTS.md

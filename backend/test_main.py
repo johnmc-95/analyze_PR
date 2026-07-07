@@ -7,6 +7,17 @@ from main import app
 
 client = TestClient(app)
 
+def test_health():
+    """
+    Comprueba el endpoint GET /health.
+    Se utiliza típicamente en despliegues (por ejemplo Kubernetes) para 
+    monitorizar el estado de la aplicación (liveness probe).
+    Este test asegura que el servicio principal de FastAPI está levantado.
+    """
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.json() == {"status": "Ok"}
+
 MOCK_STATE_CLEAN = {
     "pr_url": "https://github.com/example/project/pull/42",
     "raw_diff": "diff --git a/file.py b/file.py\n+linea nueva",
