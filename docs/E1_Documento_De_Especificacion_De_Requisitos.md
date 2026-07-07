@@ -106,7 +106,7 @@ Si el análisis no detecta problemas de seguridad, bugs ni incumplimientos de es
 
 El frontend deberá transformar el JSON generado por el backend en componentes visuales interactivos.
 
-Cada hallazgo deberá mostrarse mediante tarjetas clasificadas por severidad:
+Cada hallazgo deberá mostrarse mediante tarjetas clasificadas y ordenadas de mayor a menor severidad:
 
 * 🔴 Crítica
 * 🟠 Alta

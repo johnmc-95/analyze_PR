@@ -204,7 +204,13 @@ final_report: dict
 
 status: str
 
-error_message: str | None
+# Campos de error (RF-08) con reducer para tolerar fallos simultáneos
+# de los nodos paralelos bug/security/style:
+error_message: Annotated[str | None, _conservar_primer_error]
+
+error_status: Annotated[int | None, _conservar_primer_error]
+
+error_code: Annotated[str | None, _conservar_primer_error]
 ```
 
 ---
@@ -482,6 +488,8 @@ Ejemplos:
 
 ## Flujo de error
 
+Los nodos escriben los campos de error en el estado del grafo. El endpoint de FastAPI lee `error_message` tras `graph.invoke()` y lanza el `HTTPException` correspondiente con el código HTTP y el mensaje seguro para el usuario.
+
 ```text
             Nodo actual
 
@@ -493,7 +501,15 @@ Ejemplos:
 
                  ▼
 
-          error_handler
+    error_message / error_status
+    / error_code  → estado del grafo
+
+                 |
+
+                 ▼
+
+          FastAPI (main.py)
+          HTTPException
 
                  |
 

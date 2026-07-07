@@ -7,6 +7,8 @@ const SEVERIDAD_MAP = {
   low: 'Baja',
 }
 
+const ORDEN_SEVERIDAD = { critical: 0, high: 1, medium: 2, low: 3 }
+
 const RIESGO_MAP = {
   critical: 'Crítico',
   high: 'Alto',
@@ -42,17 +44,19 @@ function mapearRespuesta(data, url) {
     archivosAnalizados: data.metadata?.files_processed ?? 0,
     hallazgosEncontrados: data.summary?.total_issues ?? findings.length,
     nivelRiesgo: nivelRiesgoGlobal(findings),
-    hallazgos: findings.map((f) => ({
-      id: f.id,
-      categoria: f.category,
-      severidad: SEVERIDAD_MAP[f.severity] ?? 'Baja',
-      explicacion: f.explanation,
-      archivo: f.file_name,
-      linea: f.line_number?.toString() ?? 'N/A',
-      recomendacion: f.refactor_suggestion,
-      codigoMalo: f.bad_example,
-      codigoCorregido: f.code_fix,
-    })),
+    hallazgos: [...findings]
+      .sort((a, b) => (ORDEN_SEVERIDAD[a.severity] ?? 99) - (ORDEN_SEVERIDAD[b.severity] ?? 99))
+      .map((f) => ({
+        id: f.id,
+        categoria: f.category,
+        severidad: SEVERIDAD_MAP[f.severity] ?? 'Baja',
+        explicacion: f.explanation,
+        archivo: f.file_name,
+        linea: f.line_number?.toString() ?? 'N/A',
+        recomendacion: f.refactor_suggestion,
+        codigoMalo: f.bad_example,
+        codigoCorregido: f.code_fix,
+      })),
   }
 }
 
