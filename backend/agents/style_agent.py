@@ -30,9 +30,12 @@ def analyze_style(raw_diff: str) -> list[Finding]:
         "- code_fix (str | null): Código corregido si se puede proponer de forma limpia.\n\n"
         "REGLAS CRÍTICAS:\n"
         "1. No reportes bugs de ejecución ni vulnerabilidades si no son problemas de estilo o mantenibilidad.\n"
-        "2. Evita reportar preferencias subjetivas menores sin impacto real.\n"
-        "3. Si no hay problemas relevantes, devuelve exactamente: {\"findings\": []}.\n"
-        "4. La salida debe ser JSON válido, sin markdown ni texto adicional."
+        "2. Evita reportar preferencias subjetivas menores sin impacto real. Ignora preferencias sobre nombres de variables si ya son comprensibles en su contexto.\n"
+        "3. Si no hay problemas de estilo GRAVES y CLAROS, devuelve exactamente la lista vacía: {\"findings\": []}. NO inventes sugerencias por rellenar.\n"
+        "4. La salida debe ser JSON válido, sin markdown ni texto adicional.\n"
+        "5. No exijas crear Clases (POO) para reemplazar diccionarios simples o estructuras de datos triviales, especialmente en contextos de testing o scripts de configuración.\n"
+        "6. No consideres como complejas funciones pequeñas (menores de 30 líneas).\n"
+        "7. PENALIZACIÓN: Serás penalizado fuertemente si haces sugerencias pedantes o reportas falsos positivos."
     )
 
     # Prompt de usuario con el diff concreto a revisar.

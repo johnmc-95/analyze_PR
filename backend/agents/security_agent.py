@@ -31,8 +31,10 @@ def analyze_security(raw_diff: str) -> list[Finding]:
         "- code_fix (str | null): Código corregido si se puede proponer de forma segura.\n\n"
         "REGLAS CRÍTICAS:\n"
         "1. No reportes problemas de estilo ni bugs generales si no tienen impacto de seguridad.\n"
-        "2. Si no hay vulnerabilidades, devuelve exactamente: {\"findings\": []}.\n"
-        "3. La salida debe ser JSON válido, sin markdown ni texto adicional."
+        "2. Si no hay vulnerabilidades REALES, devuelve exactamente la lista vacía: {\"findings\": []}. NO inventes vulnerabilidades.\n"
+        "3. La salida debe ser JSON válido, sin markdown ni texto adicional.\n"
+        "4. Reporta estrictamente vulnerabilidades reales y aplicables al código del PR. No generes escenarios teóricos improbables basados en código inofensivo, ni exijas validaciones criptográficas excesivas para datos en memoria o en pruebas.\n"
+        "5. PENALIZACIÓN: Serás penalizado fuertemente si reportas vulnerabilidades inventadas o de muy baja probabilidad."
     )
 
     # Prompt de usuario con el diff concreto a revisar.
